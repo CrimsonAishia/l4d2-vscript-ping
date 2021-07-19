@@ -7,8 +7,19 @@ IncludeScript("VSLib");
 // ping显示时间
 ::PingExpire <- 15;
 
+// 用户ping列表
+::PingList <- {};
+// ping显示时间
+::PingExpire <- 15;
+
 function ChatTriggers::ping ( player, args, text ) {
 	local ent = player.GetLookingEntity();
+	local idx = ent.GetIndex();
+	foreach(item in PingList) {
+		if(item.entity.GetIndex() == idx) {
+			return HintSingle(player,"该实体已被标记！",10,"icon_alert");
+		}
+	}
 	if(!(PingList && player.GetUniqueID() in PingList)) {
 		local params = PingSpawn(player,ent);
 		PingList[player.GetUniqueID()] <- params;
@@ -30,6 +41,7 @@ function ChatTriggers::ping ( player, args, text ) {
 		ent = entity;
 		pingBar = "标记了 " + EntityAndPropByName(ent);
 		icon = "icon_interact";
+		EntityGlowShellAdd(ent, null, PingExpire, 3, 102, 204, 102);
 	} else {
 		remove = true;
 		ent = Utils.SpawnDynamicProp("models/editor/axis_helper_thick.mdl",player.GetPosition() + Vector(0,0,25));
@@ -46,12 +58,11 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 ::PingTFunc <- function(param) {
-	if(PingList[param].expire <= 0) {
-		Timers.RemoveTimerByName(PingList[param].flag);
+	local params = PingList[param];
+	if(params.expire <= 0) {
+		Timers.RemoveTimerByName(params.flag);
 		PingRemove(param);
-	} else {
-		PingList[param].expire--;
-	}
+	} else params.expire--;
 }
 
 ::PingRemove <- function(param) {
@@ -60,7 +71,7 @@ function ChatTriggers::ping ( player, args, text ) {
 	delete PingList[param];
 }
 
-::GetZombieName<-function(Z)
+::GetPlayerTypeName<-function(Z)
 {
 	if(Player(Z).GetPlayerType() == Z_SPITTER) return "Spitter(毒液)";
 	else if(Id.GetPlayerType() == Z_HUNTER) return "Hunter(猎手)";
@@ -74,7 +85,9 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 ::EntityAndPropByName <- function (entity) {
+	if(!entity.IsEntityValid()) return "无效实体";
     local classname = entity.GetClassname();
+	local model = entity.GetModel();
     if(classname == "weapon_rifle_ak47") return "AK47步枪";
 	if(classname == "weapon_rifle") return "M16步枪";
 	if(classname == "weapon_smg") return "smg冲锋枪"
@@ -95,7 +108,6 @@ function ChatTriggers::ping ( player, args, text ) {
 	if(classname == "weapon_pistol") return "小手枪";
 	if(classname == "weapon_pistol_magnum") return "沙漠之鹰";
 	if(classname == "weapon_melee" || classname == "weapon_melee_spawn") {
-		local model = entity.GetModel();
 		if(model == "models/w_models/weapons/w_knife_t.mdl") return "小刀";
 		if(model == "models/weapons/melee/w_machete.mdl") return "砍刀";
 		if(model == "models/weapons/melee/w_katana.mdl") return "太刀";
@@ -138,13 +150,11 @@ function ChatTriggers::ping ( player, args, text ) {
     if(classname == "weapon_ammo_spawn") return "子弹堆";
     if(classname == "weapon_spawn")
     {
-        local model = entity.GetModel();
         if(model == "models/w_models/weapons/w_eq_molotov.mdl") return "燃烧瓶";
         if(model == "models/w_models/weapons/w_eq_bile_flask.mdl") return "胆汁";
     }
     if(classname == "prop_dynamic")
     {
-        local model = entity.GetModel();
         if(model == "models/props_interiors/medicalcabinet02.mdl") return "药品箱";
         if(model == "models/w_models/weapons/w_cola.mdl") return "可乐";
         if(model == "models/props_junk/gnome.mdl") return "侏儒人偶";
@@ -154,8 +164,132 @@ function ChatTriggers::ping ( player, args, text ) {
         if(model == "models/props_interiors/tv.mdl") return "电视";
         if(model == "models/props_lab/monitor01a.mdl") return "老式电脑";
     }
+	if(classname == "prop_physics")
+	{
+		switch(model)
+		{
+			case "models/props_junk/dumpster_2.mdl": return "垃圾箱";
+			case "models/props_fairgrounds/traffic_barrel.mdl": return "交通路障";
+			case "models/props_vehicles/cara_82hatchback_wrecked.mdl": return "损坏的汽车";
+		}
+	}
     if(classname == "witch") return "女巫";
-    if(classname == "player") return GetZombieName(entity);
+    if(classname == "player") return GetPlayerTypeName(entity);
 
     return "未知实体";
+}
+
+::GetObjectUniqueID <- function(object) {
+	local classname = object.GetClassname();
+	if(classname == "player" && object.IsPlayerEntityValid()) return GetPlayerUniqueID(object);
+	return object.GetIndex();
+}
+
+::GetPlayerUniqueID <- function(player) {
+	if(player.IsPlayerEntityValid()) {
+		if(player.GetUniqueID() == "BOT") {
+			return player.GetIndex();
+		}
+		return player.GetUniqueID();
+	}
+}
+
+::FindEntityByUniqueID <- function(UniqueID) {
+	foreach(object in Objects.All()) {
+			if(object.GetClassname() == "player") {
+				if(object.GetUniqueID() == UniqueID || object.GetIndex() == UniqueID) {
+					if(object.IsPlayerEntityValid()) return object;
+					return null;
+				}
+			} else if(object.GetIndex() == UniqueID) return object;
+	}
+	return null;
+}
+
+//==============================================实体发光=============================================
+::GlowShellList <- {};
+
+::EntitySetGlow <- function(ent, type, color){
+	if(!ent.IsEntityValid()) return OtherError("EntitySetGlow function Entity is not valid");
+	ent.SetNetProp("m_Glow.m_glowColorOverride", color);
+	ent.SetNetProp("m_Glow.m_iGlowType", type);
+}
+
+// 调用该函数使实体发光进入队列
+// 如需使发光有时效性则 fixedName 为 null
+// 传入 fixedName 则是永久放光 expire 可有可无
+::EntityGlowShellAdd <- function(entity, fixedName, expire, type, red, green, blue, alpha = 255) {
+	if(!GlowShellList) return OtherError("EntityGlowShellAdd function GlowShellList no exist!");
+	
+	local UniqueID = GetObjectUniqueID(entity);
+	if(!(UniqueID in GlowShellList)) GlowShellList[UniqueID] <- {
+		uniqueID = GetObjectUniqueID(entity)
+		original = {
+			color = entity.GetGlowColor()
+			type = entity.GetNetPropInt("m_Glow.m_iGlowType")
+		}
+		fixedQueue = []
+		queue = []
+	}
+	if(fixedName != null) {
+		if(!(GlowShellList[UniqueID].fixedQueue)) return OtherError("EntityGlowShellAdd function GlowShellList Key " + UniqueID + " fixedQueue no exist!");
+		local idx = EntityGlowShellFixedGetIndex(UniqueID, fixedName);
+		local params = {flag = fixedName, color = Utils.SetColor32( red, green, blue, alpha), type = type};
+		if(idx != -1) GlowShellList[UniqueID].fixedQueue[idx] = params;
+		else GlowShellList[UniqueID].fixedQueue.push(params)
+	} else GlowShellList[UniqueID].queue.push({
+		expire = expire
+		shell = {
+			color = Utils.SetColor32( red, green, blue, alpha)
+			type = type
+		}
+	});
+}
+
+::EntityGlowShellFixedGetIndex <- function(UniqueID, fixedName) {
+	if(!(GlowShellList[UniqueID])) return OtherError("EntityGlowShellFixedGetIndex function GlowShellList no exist!");
+	foreach(idx,item in GlowShellList[UniqueID].fixedQueue) {
+		if(item.flag == fixedName) return idx
+	}
+	return -1;
+}
+
+::EntityGlowShellFixedRemove <- function(entity, fixedName) {
+	local UniqueID = GetObjectUniqueID(entity);
+	local idx = EntityGlowShellFixedGetIndex(UniqueID, fixedName);
+	if(idx != -1) GlowShellList[UniqueID].fixedQueue.remove(idx);
+	return OtherError("EntityGlowShellFixedRemove function GlowShellList Key " + UniqueID + " fixedQueue no exist!");
+	
+}
+
+::EntityGlowShell <- function(params){
+	foreach(item in GlowShellList) {
+		foreach(idx,shell in item.queue) {
+			if(--shell.expire <= 0) item.queue.remove(idx);
+		}
+		local entity = FindEntityByUniqueID(item.uniqueID);
+
+		// 永久发光外壳列表
+		if(item.fixedQueue.len() > 0) {
+			local currentShell = item.fixedQueue[item.fixedQueue.len() - 1];
+			EntitySetGlow(entity, currentShell.type, currentShell.color);
+		}
+		// 时效性发光外壳列表
+		else if(item.queue.len() > 0) {
+			local currentShell = item.queue[item.queue.len() - 1].shell;
+			EntitySetGlow(entity, currentShell.type, currentShell.color);
+		}
+		// 两个列表全部没有则恢复原样
+		if(item.queue.len() <= 0 && item.fixedQueue.len() <= 0) {
+			EntitySetGlow(entity, item.original.type, item.original.color);
+			delete GlowShellList[item.uniqueID];
+		}
+	}
+}
+
+::OtherError <- function(msg) {
+	Msg("\n---------------------------------------------------------------------");
+	Msg("\nError：" + msg);
+	Msg("\n---------------------------------------------------------------------");
+	return -1;
 }
