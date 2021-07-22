@@ -241,11 +241,7 @@ function ChatTriggers::ping ( player, args, text ) {
 	}
 }
 
-/**
- * @description: 通用Hint生成
- * @param {hint, entity, pos}
- * @return {Entity}
- */
+// 通用实体hint 创建
 ::CreateOtherHint <- function(hint, entity, pos)
 {
 	local hintname = "c_d_hint_" + entity.GetName();
@@ -289,14 +285,14 @@ function ChatTriggers::ping ( player, args, text ) {
 ::GlowShellList <- {};
 
 ::EntitySetGlow <- function(ent, type, color){
-	if(!ent.IsEntityValid()) return OtherError("EntitySetGlow function Entity is not valid");
+	if(!ent || !ent.IsEntityValid()) return OtherError("EntitySetGlow function Entity is not valid");
 	ent.SetNetProp("m_Glow.m_glowColorOverride", color);
 	ent.SetNetProp("m_Glow.m_iGlowType", type);
 }
 
 // 调用该函数使实体发光进入队列
-// 如需使发光有时效性则 mark 为 null
-// 传入 fixedName 则是永久放光 expire 可有可无
+// 默认使用 mark 为 "" 就行
+// 传入 mark 则可以给添加的发光做个标记，好将来根据mark删除
 ::EntityGlowShellAdd <- function(entity, mark, expire, type, red, green, blue, alpha = 255) {
 	if(!GlowShellList) return OtherError("EntityGlowShellAdd function GlowShellList no exist!");
 	
@@ -348,7 +344,7 @@ function ChatTriggers::ping ( player, args, text ) {
 		local entity = FindEntityByUniqueID(item.uniqueID);
 		
 		// 时效性发光外壳列表
-		if(item.queue.len() > 0) {
+		if(entity && entity.IsEntityValid() && item.queue.len() > 0) {
 			local currentShell = item.queue[item.queue.len() - 1].shell;
 			EntitySetGlow(entity, currentShell.type, currentShell.color);
 		}
