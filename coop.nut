@@ -1,6 +1,13 @@
 Msg("Ping脚本\n");
 IncludeScript("VSLib");
 
+function Notifications::OnModeStart::GameStart(gamemode)
+{
+	printf("游戏开始!");
+	// 检测发光列表
+	Timers.AddTimerByName("GlowShell",1.0,true,EntityGlowShell,null);
+}
+
 //============================================ping============================================
 // 用户ping列表
 ::PingList <- {};
@@ -14,17 +21,20 @@ IncludeScript("VSLib");
 
 function ChatTriggers::ping ( player, args, text ) {
 	local ent = player.GetLookingEntity();
-	local idx = ent.GetIndex();
-	foreach(item in PingList) {
-		if(item.entity.GetIndex() == idx) {
-			return HintSingle(player,"该实体已被标记！",10,"icon_alert");
+	if(ent != null) {
+		local idx = ent.GetIndex();
+		foreach(item in PingList) {
+			if(item.entity.GetIndex() == idx) return player.ShowHint( "该实体已被标记！", 5, "icon_alert", "", Utils.GetRandNumber(0,255) + " " + Utils.GetRandNumber(0,255) + " " + Utils.GetRandNumber(0,255), 0, 0, 0 );
 		}
 	}
+
 	if(!(PingList && player.GetUniqueID() in PingList)) {
-		local params = PingSpawn(player,ent);
-		PingList[player.GetUniqueID()] <- params;
-		Timers.AddTimerByName(params["flag"],1,true,PingTFunc,player.GetUniqueID());
+		PingList[player.GetUniqueID()] <- PingSpawn(player,ent);
+		Timers.AddTimerByName(PingList[player.GetUniqueID()].flag,1,true,PingTFunc,player.GetUniqueID());
 	} else {
+		// 移除该用户上一个实体标记
+		EntityGlowShellRemove(PingList[player.GetUniqueID()].entity,PingList[player.GetUniqueID()].glowMark);
+
 		PingRemove(player.GetUniqueID());
 		PingList[player.GetUniqueID()] <- PingSpawn(player,ent);
 	}
@@ -35,13 +45,15 @@ function ChatTriggers::ping ( player, args, text ) {
 	local remove = false;
 	local pingBar = "来我这！";
 	local icon = "icon_run";
+	local glowMark = "";
 	if(entity != null) {
 		// Debug
 		// Msg("\n物品类：" + entity.GetClassname() + "，模型：" + entity.GetModel() + "\n");
 		ent = entity;
 		pingBar = "标记了 " + EntityAndPropByName(ent);
 		icon = "icon_interact";
-		EntityGlowShellAdd(ent, null, PingExpire, 3, 102, 204, 102);
+		// 添加发光
+		glowMark = EntityGlowShellAdd(ent, "ping:" + GetObjectUniqueID(player), PingExpire, 3, 102, 204, 102);
 	} else {
 		remove = true;
 		ent = Utils.SpawnDynamicProp("models/editor/axis_helper_thick.mdl",player.GetPosition() + Vector(0,0,25));
@@ -53,6 +65,7 @@ function ChatTriggers::ping ( player, args, text ) {
 		hint = hint
 		expire = PingExpire
 		remove = remove
+		glowMark = glowMark
 	}
 	return params;
 }
@@ -65,22 +78,24 @@ function ChatTriggers::ping ( player, args, text ) {
 	} else params.expire--;
 }
 
-::PingRemove <- function(param) {
-	DoEntFire("!self", "Kill", "", 0, null, PingList[param].hint);
-	if(PingList[param].remove) PingList[param].entity.KillEntity();
-	delete PingList[param];
+::PingRemove <- function(uniqueID) {
+	local params = PingList[uniqueID];
+	DoEntFire("!self", "Kill", "", 0, null, params.hint);
+	if(params.remove) params.entity.KillEntity();
+	delete PingList[uniqueID];
 }
 
 ::GetPlayerTypeName<-function(Z)
 {
-	if(Player(Z).GetPlayerType() == Z_SPITTER) return "Spitter(毒液)";
-	else if(Id.GetPlayerType() == Z_HUNTER) return "Hunter(猎手)";
-	else if(Id.GetPlayerType() == Z_JOCKEY) return "Jocker(猴子)";
-	else if(Id.GetPlayerType() == Z_SMOKER) return "Smoker(长舌)";
-	else if(Id.GetPlayerType() == Z_BOOMER) return "Boomer(胖子)";
-	else if(Id.GetPlayerType() == Z_CHARGER) return "Charger(牛)";
-	else if(Id.GetPlayerType() == Z_TANK) return "Tank(坦克)";
-	else if(Id.GetPlayerType() == Z_SURVIVOR) return "Survivor(幸存者)";
+	local player = Player(Z);
+	if(player.GetPlayerType() == Z_SPITTER) return "Spitter(毒液)";
+	else if(player.GetPlayerType() == Z_HUNTER) return "Hunter(猎手)";
+	else if(player.GetPlayerType() == Z_JOCKEY) return "Jocker(猴子)";
+	else if(player.GetPlayerType() == Z_SMOKER) return "Smoker(长舌)";
+	else if(player.GetPlayerType() == Z_BOOMER) return "Boomer(胖子)";
+	else if(player.GetPlayerType() == Z_CHARGER) return "Charger(牛)";
+	else if(player.GetPlayerType() == Z_TANK) return "Tank(坦克)";
+	else if(player.GetPlayerType() == Z_SURVIVOR) return "Survivor(幸存者)";
 	else return "Zombie(僵尸)";
 }
 
@@ -206,6 +221,70 @@ function ChatTriggers::ping ( player, args, text ) {
 	return null;
 }
 
+// 指导性hint
+::FollowHint <- function(StrBar, range, duration = 5, coercion = 0, color = "255 255 255", icon = "icon_tip") {
+	return HintSpawnInfo <- {
+		classname = "env_instructor_hint"
+		hint_name = "follow_hint" + UniqueString()
+		hint_caption = StrBar
+		hint_auto_start = 1
+		hint_timeout = duration
+		hint_static = 0
+		hint_forcecaption = coercion
+		hint_icon_onscreen = icon
+		hint_icon_offscreen = icon
+		hint_instance_type = 2
+		hint_range = range
+		hint_allow_nodraw_target = 1
+		hint_icon_offset = 8
+		hint_color = "255 255 255"
+	}
+}
+
+/**
+ * @description: 通用Hint生成
+ * @param {hint, entity, pos}
+ * @return {Entity}
+ */
+::CreateOtherHint <- function(hint, entity, pos)
+{
+	local hintname = "c_d_hint_" + entity.GetName();
+	hint["targetname"] <- hintname;
+
+	local spawn =
+	{
+		classname = "prop_dynamic",
+		solid = "0",
+		model = "models/editor/axis_helper_thick.mdl",
+		targetname = "prop_dynamic_" + entity.GetName() ,
+		rendermode = "10",
+		angles = QAngle(0, 0, 0)
+	};
+	spawn["spawnflags"] <- 256;
+
+	local prop_dynamic = g_ModeScript.CreateSingleSimpleEntityFromTable(spawn);
+	prop_dynamic.ValidateScriptScope();
+	local UniqueName = prop_dynamic.GetName();;
+
+	AttachOther(PlayerInstanceFromIndex(entity.GetIndex()),prop_dynamic, true, pos);
+	g_MapScript.CreateHintTarget( UniqueName, prop_dynamic.GetOrigin(), null, g_MapScript.TrainingHintTargetCB )
+	g_MapScript.CreateHintOn(UniqueName, null, hint.hint_caption, hint, g_MapScript.TrainingHintCB )
+	local ex = regexp("[0-9]+");
+	local res = ex.search(SessionState.TrainingHintTargetNextName);
+	local num = SessionState.TrainingHintTargetNextName.slice(res.begin,res.end).tointeger();
+	SessionState.rawdelete( "TrainingHintTargetNextName" );
+
+	return Entities.FindByName(null,"_"+(++num)+"_"+hintname);
+}
+
+::AttachOther <- function(Entity,otherEntity, teleportOther,pos)
+{
+	teleportOther = (teleportOther.tointeger() > 0) ? true : false;
+	if (teleportOther)
+		otherEntity.SetOrigin(pos);
+	DoEntFire("!self", "SetParent", "!activator", 0, Entity, otherEntity);
+}
+
 //==============================================实体发光=============================================
 ::GlowShellList <- {};
 
@@ -216,9 +295,9 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 // 调用该函数使实体发光进入队列
-// 如需使发光有时效性则 fixedName 为 null
+// 如需使发光有时效性则 mark 为 null
 // 传入 fixedName 则是永久放光 expire 可有可无
-::EntityGlowShellAdd <- function(entity, fixedName, expire, type, red, green, blue, alpha = 255) {
+::EntityGlowShellAdd <- function(entity, mark, expire, type, red, green, blue, alpha = 255) {
 	if(!GlowShellList) return OtherError("EntityGlowShellAdd function GlowShellList no exist!");
 	
 	local UniqueID = GetObjectUniqueID(entity);
@@ -228,59 +307,53 @@ function ChatTriggers::ping ( player, args, text ) {
 			color = entity.GetGlowColor()
 			type = entity.GetNetPropInt("m_Glow.m_iGlowType")
 		}
-		fixedQueue = []
 		queue = []
 	}
-	if(fixedName != null) {
-		if(!(GlowShellList[UniqueID].fixedQueue)) return OtherError("EntityGlowShellAdd function GlowShellList Key " + UniqueID + " fixedQueue no exist!");
-		local idx = EntityGlowShellFixedGetIndex(UniqueID, fixedName);
-		local params = {flag = fixedName, color = Utils.SetColor32( red, green, blue, alpha), type = type};
-		if(idx != -1) GlowShellList[UniqueID].fixedQueue[idx] = params;
-		else GlowShellList[UniqueID].fixedQueue.push(params)
-	} else GlowShellList[UniqueID].queue.push({
+	local GlowMark = mark != "" ? mark : UniqueString();
+	GlowShellList[UniqueID].queue.push({
+		mark = GlowMark
 		expire = expire
 		shell = {
 			color = Utils.SetColor32( red, green, blue, alpha)
 			type = type
 		}
 	});
+	return GlowMark;
 }
 
-::EntityGlowShellFixedGetIndex <- function(UniqueID, fixedName) {
-	if(!(GlowShellList[UniqueID])) return OtherError("EntityGlowShellFixedGetIndex function GlowShellList no exist!");
-	foreach(idx,item in GlowShellList[UniqueID].fixedQueue) {
-		if(item.flag == fixedName) return idx
+
+::EntityGlowShellGetIndex <- function(UniqueID, mark) {
+	if(!GlowShellList) return OtherError("EntityGlowShellFixedGetIndex function GlowShellList no exist!");
+	if(UniqueID in GlowShellList) {
+		foreach(idx,item in GlowShellList[UniqueID].queue) {
+			if(item.mark == mark) return idx
+		}
 	}
 	return -1;
 }
 
-::EntityGlowShellFixedRemove <- function(entity, fixedName) {
+::EntityGlowShellRemove <- function(entity, mark) {
 	local UniqueID = GetObjectUniqueID(entity);
-	local idx = EntityGlowShellFixedGetIndex(UniqueID, fixedName);
-	if(idx != -1) GlowShellList[UniqueID].fixedQueue.remove(idx);
+	local idx = EntityGlowShellGetIndex(UniqueID, mark);
+	if(idx != -1) GlowShellList[UniqueID].queue.remove(idx);
 	return OtherError("EntityGlowShellFixedRemove function GlowShellList Key " + UniqueID + " fixedQueue no exist!");
-	
 }
 
 ::EntityGlowShell <- function(params){
 	foreach(item in GlowShellList) {
+		// Utils.PrintTable(GlowShellList);
 		foreach(idx,shell in item.queue) {
 			if(--shell.expire <= 0) item.queue.remove(idx);
 		}
 		local entity = FindEntityByUniqueID(item.uniqueID);
-
-		// 永久发光外壳列表
-		if(item.fixedQueue.len() > 0) {
-			local currentShell = item.fixedQueue[item.fixedQueue.len() - 1];
-			EntitySetGlow(entity, currentShell.type, currentShell.color);
-		}
+		
 		// 时效性发光外壳列表
-		else if(item.queue.len() > 0) {
+		if(item.queue.len() > 0) {
 			local currentShell = item.queue[item.queue.len() - 1].shell;
 			EntitySetGlow(entity, currentShell.type, currentShell.color);
 		}
-		// 两个列表全部没有则恢复原样
-		if(item.queue.len() <= 0 && item.fixedQueue.len() <= 0) {
+		// 列表全部没有则恢复原样
+		else {
 			EntitySetGlow(entity, item.original.type, item.original.color);
 			delete GlowShellList[item.uniqueID];
 		}
@@ -290,6 +363,6 @@ function ChatTriggers::ping ( player, args, text ) {
 ::OtherError <- function(msg) {
 	Msg("\n---------------------------------------------------------------------");
 	Msg("\nError：" + msg);
-	Msg("\n---------------------------------------------------------------------");
+	Msg("\n---------------------------------------------------------------------\n");
 	return -1;
 }
