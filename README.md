@@ -7,6 +7,6 @@
 - 脚本位置：游戏根目录/left4dead2/scripts/vscripts
 ### 效果
 未标记到实体
-[image](./iamges/ping-img1.png)
+![image](./iamges/ping-img1.png)
 标记到了实体
-[image](./iamges/ping-img2.png)
+![image](./iamges/ping-img2.png)
