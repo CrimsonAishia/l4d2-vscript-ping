@@ -1,0 +1,2 @@
+IncludeScript("VSLib");
+IncludeScript("coop");
