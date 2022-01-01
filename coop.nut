@@ -1,6 +1,3 @@
-Msg("Ping脚本\n");
-IncludeScript("VSLib");
-
 function Notifications::OnModeStart::GameStart(gamemode)
 {
 	printf("游戏开始!");
@@ -19,19 +16,24 @@ function Notifications::OnModeStart::GameStart(gamemode)
 // ping显示时间
 ::PingExpire <- 15;
 
-function ChatTriggers::ping ( player, args, text ) {
+function ChatTriggers::ping ( player, args, text ) 
+{
 	local ent = player.GetLookingEntity();
-	if(ent != null) {
+	if(ent != null)
+{
 		local idx = ent.GetIndex();
-		foreach(item in PingList) {
+		foreach(item in PingList)
+{
 			if(item.entity.GetIndex() == idx) return player.ShowHint( "该实体已被标记！", 5, "icon_alert", "", Utils.GetRandNumber(0,255) + " " + Utils.GetRandNumber(0,255) + " " + Utils.GetRandNumber(0,255), 0, 0, 0 );
 		}
 	}
 
-	if(!(PingList && player.GetUniqueID() in PingList)) {
+	if(!(PingList && player.GetUniqueID() in PingList))
+{
 		PingList[player.GetUniqueID()] <- PingSpawn(player,ent);
 		Timers.AddTimerByName(PingList[player.GetUniqueID()].flag,1,true,PingTFunc,player.GetUniqueID());
-	} else {
+	} else
+{
 		// 移除该用户上一个实体标记
 		EntityGlowShellRemove(PingList[player.GetUniqueID()].entity,PingList[player.GetUniqueID()].glowMark);
 
@@ -40,13 +42,15 @@ function ChatTriggers::ping ( player, args, text ) {
 	}
 }
 
-::PingSpawn <- function(player,entity) {
+::PingSpawn <- function(player,entity)
+{
 	local ent = null;
 	local remove = false;
 	local pingBar = "来我这！";
 	local icon = "icon_run";
 	local glowMark = "";
-	if(entity != null) {
+	if(entity != null)
+{
 		// Debug
 		// Msg("\n物品类：" + entity.GetClassname() + "，模型：" + entity.GetModel() + "\n");
 		ent = entity;
@@ -54,12 +58,14 @@ function ChatTriggers::ping ( player, args, text ) {
 		icon = "icon_interact";
 		// 添加发光
 		glowMark = EntityGlowShellAdd(ent, "ping:" + GetObjectUniqueID(player), PingExpire, 3, 102, 204, 102);
-	} else {
+	} else
+{
 		remove = true;
 		ent = Utils.SpawnDynamicProp("models/editor/axis_helper_thick.mdl",player.GetPosition() + Vector(0,0,25));
 	}
 	local hint = CreateOtherHint(FollowHint(player.GetName() + "：" + pingBar,5000,0,1,"255 255 255",icon),ent ,ent.GetPosition());
-	local params = {
+	local params =
+{
 		flag = "ping:" + player.GetUniqueID()
 		entity = ent
 		hint = hint
@@ -70,15 +76,18 @@ function ChatTriggers::ping ( player, args, text ) {
 	return params;
 }
 
-::PingTFunc <- function(param) {
+::PingTFunc <- function(param)
+{
 	local params = PingList[param];
-	if(params.expire <= 0) {
+	if(params.expire <= 0)
+{
 		Timers.RemoveTimerByName(params.flag);
 		PingRemove(param);
 	} else params.expire--;
 }
 
-::PingRemove <- function(uniqueID) {
+::PingRemove <- function(uniqueID)
+{
 	local params = PingList[uniqueID];
 	DoEntFire("!self", "Kill", "", 0, null, params.hint);
 	if(params.remove) params.entity.KillEntity();
@@ -99,7 +108,8 @@ function ChatTriggers::ping ( player, args, text ) {
 	else return "Zombie(僵尸)";
 }
 
-::EntityAndPropByName <- function (entity) {
+::EntityAndPropByName <- function (entity)
+{
 	if(!entity.IsEntityValid()) return "无效实体";
     local classname = entity.GetClassname();
 	local model = entity.GetModel();
@@ -122,7 +132,8 @@ function ChatTriggers::ping ( player, args, text ) {
 	if(classname == "weapon_grenade_launcher") return "榴弹枪";
 	if(classname == "weapon_pistol") return "小手枪";
 	if(classname == "weapon_pistol_magnum") return "沙漠之鹰";
-	if(classname == "weapon_melee" || classname == "weapon_melee_spawn") {
+	if(classname == "weapon_melee" || classname == "weapon_melee_spawn")
+{
 		if(model == "models/w_models/weapons/w_knife_t.mdl") return "小刀";
 		if(model == "models/weapons/melee/w_machete.mdl") return "砍刀";
 		if(model == "models/weapons/melee/w_katana.mdl") return "太刀";
@@ -164,12 +175,14 @@ function ChatTriggers::ping ( player, args, text ) {
     if(classname == "prop_minigun") return "机枪";
     if(classname == "weapon_ammo_spawn") return "子弹堆";
     if(classname == "weapon_spawn")
-    {
+   
+{
         if(model == "models/w_models/weapons/w_eq_molotov.mdl") return "燃烧瓶";
         if(model == "models/w_models/weapons/w_eq_bile_flask.mdl") return "胆汁";
     }
     if(classname == "prop_dynamic")
-    {
+   
+{
         if(model == "models/props_interiors/medicalcabinet02.mdl") return "药品箱";
         if(model == "models/w_models/weapons/w_cola.mdl") return "可乐";
         if(model == "models/props_junk/gnome.mdl") return "侏儒人偶";
@@ -194,25 +207,33 @@ function ChatTriggers::ping ( player, args, text ) {
     return "未知实体";
 }
 
-::GetObjectUniqueID <- function(object) {
+::GetObjectUniqueID <- function(object)
+{
 	local classname = object.GetClassname();
 	if(classname == "player" && object.IsPlayerEntityValid()) return GetPlayerUniqueID(object);
 	return object.GetIndex();
 }
 
-::GetPlayerUniqueID <- function(player) {
-	if(player.IsPlayerEntityValid()) {
-		if(player.GetUniqueID() == "BOT") {
+::GetPlayerUniqueID <- function(player)
+{
+	if(player.IsPlayerEntityValid())
+{
+		if(player.GetUniqueID() == "BOT")
+{
 			return player.GetIndex();
 		}
 		return player.GetUniqueID();
 	}
 }
 
-::FindEntityByUniqueID <- function(UniqueID) {
-	foreach(object in Objects.All()) {
-			if(object.GetClassname() == "player") {
-				if(object.GetUniqueID() == UniqueID || object.GetIndex() == UniqueID) {
+::FindEntityByUniqueID <- function(UniqueID)
+{
+	foreach(object in Objects.All())
+{
+			if(object.GetClassname() == "player")
+{
+				if(object.GetUniqueID() == UniqueID || object.GetIndex() == UniqueID)
+{
 					if(object.IsPlayerEntityValid()) return object;
 					return null;
 				}
@@ -222,8 +243,10 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 // 指导性hint
-::FollowHint <- function(StrBar, range, duration = 5, coercion = 0, color = "255 255 255", icon = "icon_tip") {
-	return HintSpawnInfo <- {
+::FollowHint <- function(StrBar, range, duration = 5, coercion = 0, color = "255 255 255", icon = "icon_tip")
+{
+	return HintSpawnInfo <-
+{
 		classname = "env_instructor_hint"
 		hint_name = "follow_hint" + UniqueString()
 		hint_caption = StrBar
@@ -282,7 +305,8 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 //==============================================实体发光=============================================
-::GlowShellList <- {};
+::GlowShellList <-
+{};
 
 ::EntitySetGlow <- function(ent, type, color){
 	if(!ent || !ent.IsEntityValid()) return OtherError("EntitySetGlow function Entity is not valid");
@@ -293,13 +317,16 @@ function ChatTriggers::ping ( player, args, text ) {
 // 调用该函数使实体发光进入队列
 // 默认使用 mark 为 "" 就行
 // 传入 mark 则可以给添加的发光做个标记，好将来根据mark删除
-::EntityGlowShellAdd <- function(entity, mark, expire, type, red, green, blue, alpha = 255) {
+::EntityGlowShellAdd <- function(entity, mark, expire, type, red, green, blue, alpha = 255)
+{
 	if(!GlowShellList) return OtherError("EntityGlowShellAdd function GlowShellList no exist!");
 	
 	local UniqueID = GetObjectUniqueID(entity);
-	if(!(UniqueID in GlowShellList)) GlowShellList[UniqueID] <- {
+	if(!(UniqueID in GlowShellList)) GlowShellList[UniqueID] <-
+{
 		uniqueID = GetObjectUniqueID(entity)
-		original = {
+		original =
+{
 			color = entity.GetGlowColor()
 			type = entity.GetNetPropInt("m_Glow.m_iGlowType")
 		}
@@ -309,7 +336,8 @@ function ChatTriggers::ping ( player, args, text ) {
 	GlowShellList[UniqueID].queue.push({
 		mark = GlowMark
 		expire = expire
-		shell = {
+		shell =
+{
 			color = Utils.SetColor32( red, green, blue, alpha)
 			type = type
 		}
@@ -318,17 +346,21 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 
-::EntityGlowShellGetIndex <- function(UniqueID, mark) {
+::EntityGlowShellGetIndex <- function(UniqueID, mark)
+{
 	if(!GlowShellList) return OtherError("EntityGlowShellFixedGetIndex function GlowShellList no exist!");
-	if(UniqueID in GlowShellList) {
-		foreach(idx,item in GlowShellList[UniqueID].queue) {
+	if(UniqueID in GlowShellList)
+{
+		foreach(idx,item in GlowShellList[UniqueID].queue)
+{
 			if(item.mark == mark) return idx
 		}
 	}
 	return -1;
 }
 
-::EntityGlowShellRemove <- function(entity, mark) {
+::EntityGlowShellRemove <- function(entity, mark)
+{
 	local UniqueID = GetObjectUniqueID(entity);
 	local idx = EntityGlowShellGetIndex(UniqueID, mark);
 	if(idx != -1) GlowShellList[UniqueID].queue.remove(idx);
@@ -336,27 +368,32 @@ function ChatTriggers::ping ( player, args, text ) {
 }
 
 ::EntityGlowShell <- function(params){
-	foreach(item in GlowShellList) {
+	foreach(item in GlowShellList)
+{
 		// Utils.PrintTable(GlowShellList);
-		foreach(idx,shell in item.queue) {
+		foreach(idx,shell in item.queue)
+{
 			if(--shell.expire <= 0) item.queue.remove(idx);
 		}
 		local entity = FindEntityByUniqueID(item.uniqueID);
 		
 		// 时效性发光外壳列表
-		if(entity && entity.IsEntityValid() && item.queue.len() > 0) {
+		if(entity && entity.IsEntityValid() && item.queue.len() > 0)
+{
 			local currentShell = item.queue[item.queue.len() - 1].shell;
 			EntitySetGlow(entity, currentShell.type, currentShell.color);
 		}
 		// 列表全部没有则恢复原样
-		else {
+		else
+{
 			EntitySetGlow(entity, item.original.type, item.original.color);
 			delete GlowShellList[item.uniqueID];
 		}
 	}
 }
 
-::OtherError <- function(msg) {
+::OtherError <- function(msg)
+{
 	Msg("\n---------------------------------------------------------------------");
 	Msg("\nError：" + msg);
 	Msg("\n---------------------------------------------------------------------\n");
